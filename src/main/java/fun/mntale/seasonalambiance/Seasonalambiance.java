@@ -223,8 +223,25 @@ public class Seasonalambiance {
         batchRenderer.renderBatch(event.getGuiGraphics(), fallingObjects);
     }
 
+    private static Season seasonFromChoice(Config.SeasonChoice choice) {
+        return switch (choice) {
+            case AUTUMN -> Season.AUTUMN;
+            case WINTER -> Season.WINTER;
+            case SPRING -> Season.SPRING;
+            case SUMMER -> Season.SUMMER;
+            case NEW_YEAR -> Season.NEW_YEAR;
+            case VALENTINES -> Season.VALENTINES;
+            case HALLOWEEN -> Season.HALLOWEEN;
+            case CHRISTMAS -> Season.CHRISTMAS;
+            case PRIDE -> Season.PRIDE;
+        };
+    }
+
     @SuppressWarnings("ConstantConditions")
     private static Season getCurrentSeason() {
+        if (Config.forceSeasonEnabled) {
+            return seasonFromChoice(Config.forcedSeason);
+        }
         LocalDate now = LocalDate.now();
         Month month = now.getMonth();
         int day = now.getDayOfMonth();
