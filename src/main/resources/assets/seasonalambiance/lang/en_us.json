@@ -1,0 +1,46 @@
+{
+  "itemGroup.seasonalambiance": "Seasonal Ambiance",
+  "block.seasonalambiance.example_block": "Example Block",
+  "item.seasonalambiance.example_item": "Example Item",
+
+  "seasonalambiance.config.title": "Seasonal Ambiance Configuration",
+
+  "seasonalambiance.configuration.enabled": "Enable Particles",
+  "seasonalambiance.configuration.enabled.tooltip": "Enable or disable all falling particles",
+
+  "seasonalambiance.configuration.spawnRateMultiplier": "Spawn Rate Multiplier",
+  "seasonalambiance.configuration.spawnRateMultiplier.tooltip": "Multiplier for particle spawn rate (0.1 = 10%, 1.0 = 100%, 2.0 = 200%)",
+
+  "seasonalambiance.configuration.fallSpeedMultiplier": "Fall Speed Multiplier",
+  "seasonalambiance.configuration.fallSpeedMultiplier.tooltip": "Multiplier for particle fall speed (0.5 = 50% speed, 1.0 = normal, 2.0 = 200% speed)",
+
+  "seasonalambiance.configuration.horizontalSwayMultiplier": "Horizontal Sway Multiplier",
+  "seasonalambiance.configuration.horizontalSwayMultiplier.tooltip": "Multiplier for horizontal sway movement (0.0 = no sway, 1.0 = normal, 2.0 = double sway)",
+
+  "seasonalambiance.configuration.rotationSpeedMultiplier": "Rotation Speed Multiplier",
+  "seasonalambiance.configuration.rotationSpeedMultiplier.tooltip": "Multiplier for particle rotation speed (0.0 = no rotation, 1.0 = normal, 2.0 = double speed)",
+
+  "seasonalambiance.configuration.particleSize": "Particle Size",
+  "seasonalambiance.configuration.particleSize.tooltip": "Base size of particles in pixels (8-64)",
+
+  "seasonalambiance.configuration.mouseRepulsionRadius": "Mouse Repulsion Radius",
+  "seasonalambiance.configuration.mouseRepulsionRadius.tooltip": "Radius around mouse cursor where particles are repelled (0 = disabled, 30 = default)",
+
+  "seasonalambiance.configuration.mouseRepulsionStrength": "Mouse Repulsion Strength",
+  "seasonalambiance.configuration.mouseRepulsionStrength.tooltip": "Strength of mouse repulsion effect",
+
+  "seasonalambiance.configuration.enableOnTitleScreen": "Enable on Title Screen",
+  "seasonalambiance.configuration.enableOnTitleScreen.tooltip": "Enable particles on title screen",
+
+  "seasonalambiance.configuration.enableOnInventory": "Enable on Inventory",
+  "seasonalambiance.configuration.enableOnInventory.tooltip": "Enable particles on inventory/container screens",
+
+  "seasonalambiance.configuration.enableInGame": "Enable In-Game",
+  "seasonalambiance.configuration.enableInGame.tooltip": "Enable particles on all other game screens",
+
+  "seasonalambiance.configuration.forceSeasonEnabled": "Force Specific Season",
+  "seasonalambiance.configuration.forceSeasonEnabled.tooltip": "Force a specific season instead of auto-detecting",
+
+  "seasonalambiance.configuration.forcedSeason": "Forced Season",
+  "seasonalambiance.configuration.forcedSeason.tooltip": "Which season to force (select from dropdown)"
+}
