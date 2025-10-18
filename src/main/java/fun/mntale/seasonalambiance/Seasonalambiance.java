@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.util.*;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
@@ -23,6 +22,7 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 @Mod(Seasonalambiance.MODID)
 public class Seasonalambiance {
@@ -220,7 +220,7 @@ public class Seasonalambiance {
         }
 
         // GPU batch render all particles at once
-        batchRenderer.renderBatch(event.getGuiGraphics(), fallingObjects);
+        batchRenderer.renderBatch(fallingObjects);
     }
 
     private static Season seasonFromChoice(Config.SeasonChoice choice) {
@@ -388,67 +388,72 @@ public class Seasonalambiance {
                 (float) Config.rotationSpeedMultiplier;
         }
     }
-
     private static class ParticleBatchRenderer {
 
-        void renderBatch(
-            GuiGraphics guiGraphics,
-            List<FallingImage> particles
-        ) {
+        void renderBatch(List<FallingImage> particles) {
             if (particles.isEmpty()) return;
 
-            PoseStack poseStack = guiGraphics.pose();
+            // Group by texture to minimize texture binds
+            Map<ResourceLocation, List<FallingImage>> grouped = new HashMap<>();
+            for (FallingImage p : particles) {
+                grouped.computeIfAbsent(p.texture, k -> new ArrayList<>()).add(p);
+            }
 
-            // Render each particle using GuiGraphics blit (proper integration)
-            for (FallingImage particle : particles) {
-                poseStack.pushPose();
+            for (Map.Entry<ResourceLocation, List<FallingImage>> entry : grouped.entrySet()) {
+                ResourceLocation texture = entry.getKey();
+                List<FallingImage> group = entry.getValue();
+                if (group.isEmpty()) continue;
 
-                // Translate to particle position
-                poseStack.translate(particle.x, particle.y, 0);
-
-                // Rotate around center (Z axis)
-                poseStack.mulPose(
-                    new org.joml.Quaternionf().rotateZ(
-                        (float) Math.toRadians(particle.angle)
-                    )
-                );
-
-                // Calculate size using config
-                float size = Config.particleSize * particle.scale;
-                int iSize = (int) size;
-
-                // Draw centered
-                int halfSize = iSize / 2;
-                RenderSystem.setShaderTexture(0, particle.texture);
                 RenderSystem.setShader(GameRenderer::getPositionTexShader);
+                RenderSystem.setShaderTexture(0, texture);
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
 
-                Matrix4f matrix = poseStack.last().pose();
-                BufferBuilder bufferBuilder = Tesselator.getInstance().begin(
-                    VertexFormat.Mode.QUADS,
-                    DefaultVertexFormat.POSITION_TEX
-                );
+                // Start a new buffer (MeshData builder)
+                BufferBuilder builder = Tesselator.getInstance()
+                        .begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
 
-                bufferBuilder
-                    .addVertex(matrix, -halfSize, -halfSize, 0)
-                    .setUv(0, 0);
-                bufferBuilder
-                    .addVertex(matrix, -halfSize, halfSize, 0)
-                    .setUv(0, 1);
-                bufferBuilder
-                    .addVertex(matrix, halfSize, halfSize, 0)
-                    .setUv(1, 1);
-                bufferBuilder
-                    .addVertex(matrix, halfSize, -halfSize, 0)
-                    .setUv(1, 0);
+                for (FallingImage particle : group) {
+                    float size = Config.particleSize * particle.scale;
+                    float half = size / 2f;
 
-                BufferUploader.drawWithShader(bufferBuilder.buildOrThrow());
+                    Matrix4f mat = new Matrix4f();
+                    mat.translate(particle.x, particle.y, 0);
+                    mat.rotateZ((float) Math.toRadians(particle.angle));
+
+                    // Add vertices
+                    addQuad(builder, mat, -half, -half, half, half);
+                }
+
+                // Build & draw
+                MeshData mesh = builder.build();
+                assert mesh != null;
+                BufferUploader.drawWithShader(mesh);
 
                 RenderSystem.disableBlend();
-
-                poseStack.popPose();
             }
+        }
+
+        private static void addQuad(BufferBuilder b, Matrix4f m, float min, float minY, float max, float maxY) {
+            // Bottom-left
+            Vector4f v1 = new Vector4f(min, minY, 0, 1);
+            v1.mul(m);
+            b.addVertex(v1.x(), v1.y(), v1.z()).setUv(0, 0);
+
+            // Top-left
+            Vector4f v2 = new Vector4f(min, maxY, 0, 1);
+            v2.mul(m);
+            b.addVertex(v2.x(), v2.y(), v2.z()).setUv(0, 1);
+
+            // Top-right
+            Vector4f v3 = new Vector4f(max, maxY, 0, 1);
+            v3.mul(m);
+            b.addVertex(v3.x(), v3.y(), v3.z()).setUv(1, 1);
+
+            // Bottom-right
+            Vector4f v4 = new Vector4f(max, minY, 0, 1);
+            v4.mul(m);
+            b.addVertex(v4.x(), v4.y(), v4.z()).setUv(1, 0);
         }
     }
 }
