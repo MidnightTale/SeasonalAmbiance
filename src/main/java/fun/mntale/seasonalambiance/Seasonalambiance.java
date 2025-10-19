@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.*;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -32,64 +33,84 @@ public class Seasonalambiance {
     private static final Minecraft mc = Minecraft.getInstance();
     private static final RandomSource random = RandomSource.create();
     private static final List<FallingImage> fallingObjects = new ArrayList<>(
-        200
+            200
     );
     private static final Map<Season, List<ResourceLocation>> seasonalTextures =
-        new EnumMap<>(Season.class);
+            new EnumMap<>(Season.class);
 
     private static Season currentSeason = Season.AUTUMN;
     private static long lastSeasonCheck = 0;
     private static long lastFrameTimeNanos = System.nanoTime();
     private static int lastScreenWidth = 0;
     private static int lastScreenHeight = 0;
+    private static boolean texturesLoaded = false;
 
     // GPU batch rendering
     private static final ParticleBatchRenderer batchRenderer =
-        new ParticleBatchRenderer();
+            new ParticleBatchRenderer();
+
+    public static void clearAllParticles() {
+        fallingObjects.clear();
+        System.out.println("[Seasonal Ambiance] All particles cleared!");
+    }
 
     public Seasonalambiance(IEventBus modEventBus, ModContainer modContainer) {
         // Register config
         modContainer.registerConfig(ModConfig.Type.CLIENT, Config.SPEC);
 
-        // Register config screen factory (built-in NeoForge GUI)
+        // Register config screen factory with custom clear button
         modContainer.registerExtensionPoint(
-            IConfigScreenFactory.class,
-            (minecraft, parent) ->
-                new net.neoforged.neoforge.client.gui.ConfigurationScreen(
-                    modContainer,
-                    parent
-                )
+                IConfigScreenFactory.class,
+                (minecraft, parent) ->
+                        new SeasonalAmbianceConfigScreen(modContainer, parent)
         );
 
         modEventBus.addListener(this::onClientSetup);
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(this::loadSeasonalTextures);
+        // Load textures asynchronously on a virtual thread
+        CompletableFuture.runAsync(this::loadSeasonalTextures)
+                .whenComplete((result, exception) -> {
+                    if (exception != null) {
+                        System.err.println("[Seasonal Ambiance] Error loading textures:");
+                        exception.printStackTrace();
+                    } else {
+                        texturesLoaded = true;
+                        System.out.println("[Seasonal Ambiance] Textures loaded successfully!");
+                    }
+                });
+
         NeoForge.EVENT_BUS.addListener(this::onRenderGui);
 
         System.out.println(
-            "[Seasonal Ambiance] Mod initialized with GPU rendering!"
+                "[Seasonal Ambiance] Mod initialized with GPU rendering!"
         );
     }
 
     private void onRenderGui(ScreenEvent.Render.Post event) {
+        // Wait for textures to load before rendering
+        if (!texturesLoaded) return;
+
         // Check if particles are enabled
         if (!Config.enabled) return;
 
+        // Pause rendering if window is not focused (configurable)
+        if (Config.pauseWhenUnfocused && !mc.isWindowActive()) return;
+
         // Check screen-specific filters
         if (
-            event.getScreen() instanceof TitleScreen &&
-            !Config.enableOnTitleScreen
+                event.getScreen() instanceof TitleScreen &&
+                        !Config.enableOnTitleScreen
         ) return;
         if (
-            event.getScreen() instanceof AbstractContainerScreen &&
-            !Config.enableOnInventory
+                event.getScreen() instanceof AbstractContainerScreen &&
+                        !Config.enableOnInventory
         ) return;
         if (
-            !(event.getScreen() instanceof TitleScreen) &&
-            !(event.getScreen() instanceof AbstractContainerScreen) &&
-            !Config.enableInGame
+                !(event.getScreen() instanceof TitleScreen) &&
+                        !(event.getScreen() instanceof AbstractContainerScreen) &&
+                        !Config.enableInGame
         ) return;
 
         long currentTime = System.currentTimeMillis();
@@ -99,7 +120,7 @@ public class Seasonalambiance {
         }
 
         List<ResourceLocation> currentTextures = seasonalTextures.get(
-            currentSeason
+                currentSeason
         );
         if (currentTextures == null || currentTextures.isEmpty()) return;
 
@@ -108,9 +129,9 @@ public class Seasonalambiance {
 
         // Detect GUI scale changes and reposition particles proportionally
         if (
-            lastScreenWidth != 0 &&
-            lastScreenHeight != 0 &&
-            (lastScreenWidth != screenWidth || lastScreenHeight != screenHeight)
+                lastScreenWidth != 0 &&
+                        lastScreenHeight != 0 &&
+                        (lastScreenWidth != screenWidth || lastScreenHeight != screenHeight)
         ) {
             float widthRatio = (float) screenWidth / lastScreenWidth;
             float heightRatio = (float) screenHeight / lastScreenHeight;
@@ -123,7 +144,7 @@ public class Seasonalambiance {
 
             // Remove particles that are still off-screen after scaling
             fallingObjects.removeIf(
-                obj -> obj.x < -50 || obj.x > screenWidth + 50 || obj.y < -50
+                    obj -> obj.x < -50 || obj.x > screenWidth + 50 || obj.y < -50
             );
         }
 
@@ -134,49 +155,40 @@ public class Seasonalambiance {
         float speed = 1.0F;
         float speedVariance = 0.8F;
 
-//        if (event.getScreen() instanceof TitleScreen) {
-//            spawnChance = 0.12F;
-//        } else if (event.getScreen() instanceof AbstractContainerScreen<?>) {
-//            spawnChance = 0.02F;
-//            // Removed: speed = 0.3F;
-//            // speedVariance = 0.2F;
-//        }
-
         SeasonConfig config = currentSeason.config;
         spawnChance *= (float) (config.spawnMultiplier *
-            Config.spawnRateMultiplier);
+                Config.spawnRateMultiplier);
         speed *= (float) (config.speedMultiplier * Config.fallSpeedMultiplier);
 
         // Spawn new objects
         if (!currentTextures.isEmpty() && random.nextFloat() < spawnChance) {
             ResourceLocation texture = currentTextures.get(
-                random.nextInt(currentTextures.size())
+                    random.nextInt(currentTextures.size())
             );
-            // Add margin to ensure particles spawn across full width including edges
             float x = -20.0F + random.nextFloat() * (screenWidth + 40.0F);
             float objectSpeed = speed + random.nextFloat() * speedVariance;
             float scale = 0.8F + random.nextFloat() * 0.4F;
             float rotationSpeed = 0.8F + random.nextFloat() * 0.4F;
 
             fallingObjects.add(
-                new FallingImage(
-                    texture,
-                    x,
-                    -20.0F,
-                    objectSpeed,
-                    scale,
-                    rotationSpeed,
-                    (float) (config.horizontalSway *
-                        Config.horizontalSwayMultiplier)
-                )
+                    new FallingImage(
+                            texture,
+                            x,
+                            -20.0F,
+                            objectSpeed,
+                            scale,
+                            rotationSpeed,
+                            (float) (config.horizontalSway *
+                                    Config.horizontalSwayMultiplier)
+                    )
             );
         }
 
         // Calculate delta time for frame-rate independent movement
         long nowNanos = System.nanoTime();
         float deltaTime = Math.max(
-            0,
-            Math.min(0.1F, (nowNanos - lastFrameTimeNanos) / 1_000_000_000.0F)
+                0,
+                Math.min(0.1F, (nowNanos - lastFrameTimeNanos) / 1_000_000_000.0F)
         );
         lastFrameTimeNanos = nowNanos;
 
@@ -191,28 +203,27 @@ public class Seasonalambiance {
 
             // Remove particles that are off-screen
             if (
-                obj.y > screenHeight + 40 ||
-                obj.x < -40 ||
-                obj.x > screenWidth + 40
+                    obj.y > screenHeight + 40 ||
+                            obj.x < -40 ||
+                            obj.x > screenWidth + 40
             ) {
                 fallingObjects.remove(i);
                 continue;
             }
 
             // Mouse repulsion
-            // Apply mouse repulsion if enabled
             if (Config.mouseRepulsionRadius > 0) {
                 double dx = obj.x - mouseX;
                 double dy = obj.y - mouseY;
                 double distSq = dx * dx + dy * dy;
                 double radiusSq =
-                    Config.mouseRepulsionRadius * Config.mouseRepulsionRadius;
+                        Config.mouseRepulsionRadius * Config.mouseRepulsionRadius;
 
                 if (distSq < radiusSq && distSq > 1.0E-4D) {
                     double dist = Math.sqrt(distSq);
                     double strength =
-                        (1.0D - dist / Config.mouseRepulsionRadius) *
-                        Config.mouseRepulsionStrength;
+                            (1.0D - dist / Config.mouseRepulsionRadius) *
+                                    Config.mouseRepulsionStrength;
                     obj.x += (float) ((dx / dist) * strength);
                     obj.y += (float) ((dy / dist) * strength);
                 }
@@ -248,31 +259,31 @@ public class Seasonalambiance {
 
         if (month == Month.JANUARY && day <= 3) return Season.NEW_YEAR;
         if (
-            month == Month.FEBRUARY && day >= 10 && day <= 14
+                month == Month.FEBRUARY && day >= 10 && day <= 14
         ) return Season.VALENTINES;
         if (
-            (month == Month.DECEMBER && day >= 15) ||
-            (month == Month.JANUARY && day <= 5)
+                (month == Month.DECEMBER && day >= 15) ||
+                        (month == Month.JANUARY && day <= 5)
         ) return Season.CHRISTMAS;
         if (month == Month.JUNE) return Season.PRIDE;
 
         if (
-            (month == Month.SEPTEMBER && day >= 22) ||
-            month == Month.OCTOBER ||
-            month == Month.NOVEMBER ||
-            (month == Month.DECEMBER && day <= 14)
+                (month == Month.SEPTEMBER && day >= 22) ||
+                        month == Month.OCTOBER ||
+                        month == Month.NOVEMBER ||
+                        (month == Month.DECEMBER && day <= 14)
         ) return Season.AUTUMN;
         if (
-            (month == Month.DECEMBER && day >= 21) ||
-            month == Month.JANUARY ||
-            month == Month.FEBRUARY ||
-            (month == Month.MARCH && day <= 19)
+                (month == Month.DECEMBER && day >= 21) ||
+                        month == Month.JANUARY ||
+                        month == Month.FEBRUARY ||
+                        (month == Month.MARCH && day <= 19)
         ) return Season.WINTER;
         if (
-            (month == Month.MARCH && day >= 20) ||
-            month == Month.APRIL ||
-            month == Month.MAY ||
-            (month == Month.JUNE && day <= 20)
+                (month == Month.MARCH && day >= 20) ||
+                        month == Month.APRIL ||
+                        month == Month.MAY ||
+                        (month == Month.JUNE && day <= 20)
         ) return Season.SPRING;
 
         return Season.SUMMER;
@@ -287,22 +298,22 @@ public class Seasonalambiance {
             ArrayList<ResourceLocation> textures = new ArrayList<>();
 
             Map<ResourceLocation, Resource> found = rm.listResources(
-                basePath,
-                name -> name.getPath().endsWith(".png")
+                    basePath,
+                    name -> name.getPath().endsWith(".png")
             );
             for (ResourceLocation rl : found.keySet()) {
                 textures.add(
-                    ResourceLocation.fromNamespaceAndPath(MODID, rl.getPath())
+                        ResourceLocation.fromNamespaceAndPath(MODID, rl.getPath())
                 );
             }
 
             textures.trimToSize();
             seasonalTextures.put(season, textures);
             System.out.println(
-                "[Seasonal Ambiance] Loaded " +
-                    textures.size() +
-                    " textures for " +
-                    season.name()
+                    "[Seasonal Ambiance] Loaded " +
+                            textures.size() +
+                            " textures for " +
+                            season.name()
             );
         }
     }
@@ -322,10 +333,10 @@ public class Seasonalambiance {
         final String folderName;
 
         Season(
-            float spawnMult,
-            float speedMult,
-            float sway,
-            String folderName
+                float spawnMult,
+                float speedMult,
+                float sway,
+                String folderName
         ) {
             this.config = new SeasonConfig(spawnMult, speedMult, sway);
             this.folderName = folderName;
@@ -333,9 +344,9 @@ public class Seasonalambiance {
     }
 
     private record SeasonConfig(
-        float spawnMultiplier,
-        float speedMultiplier,
-        float horizontalSway
+            float spawnMultiplier,
+            float speedMultiplier,
+            float horizontalSway
     ) {}
 
     private static class FallingImage {
@@ -351,13 +362,13 @@ public class Seasonalambiance {
         final float horizontalSway;
 
         FallingImage(
-            ResourceLocation texture,
-            float x,
-            float y,
-            float speed,
-            float scale,
-            float rotationSpeed,
-            float horizontalSway
+                ResourceLocation texture,
+                float x,
+                float y,
+                float speed,
+                float scale,
+                float rotationSpeed,
+                float horizontalSway
         ) {
             this.texture = texture;
             this.x = x;
@@ -371,29 +382,28 @@ public class Seasonalambiance {
         }
 
         void update(float deltaTime) {
-            // Frame-rate independent movement with dynamic horizontal sway
             deltaTime = Math.min(deltaTime, 0.1F);
             this.y += this.speed * deltaTime * 60.0F;
             this.time += 0.08F * deltaTime * 60.0F;
             this.x +=
-                (float) Math.sin(this.time) *
-                this.horizontalSway *
-                1.2F *
-                deltaTime *
-                60.0F;
+                    (float) Math.sin(this.time) *
+                            this.horizontalSway *
+                            1.2F *
+                            deltaTime *
+                            60.0F;
             this.angle +=
-                this.rotationSpeed *
-                deltaTime *
-                60.0F *
-                (float) Config.rotationSpeedMultiplier;
+                    this.rotationSpeed *
+                            deltaTime *
+                            60.0F *
+                            (float) Config.rotationSpeedMultiplier;
         }
     }
+
     private static class ParticleBatchRenderer {
 
         void renderBatch(List<FallingImage> particles) {
             if (particles.isEmpty()) return;
 
-            // Group by texture to minimize texture binds
             Map<ResourceLocation, List<FallingImage>> grouped = new HashMap<>();
             for (FallingImage p : particles) {
                 grouped.computeIfAbsent(p.texture, k -> new ArrayList<>()).add(p);
@@ -409,7 +419,6 @@ public class Seasonalambiance {
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
 
-                // Start a new buffer (MeshData builder)
                 BufferBuilder builder = Tesselator.getInstance()
                         .begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
 
@@ -421,11 +430,9 @@ public class Seasonalambiance {
                     mat.translate(particle.x, particle.y, 0);
                     mat.rotateZ((float) Math.toRadians(particle.angle));
 
-                    // Add vertices
                     addQuad(builder, mat, -half, -half, half, half);
                 }
 
-                // Build & draw
                 MeshData mesh = builder.build();
                 assert mesh != null;
                 BufferUploader.drawWithShader(mesh);
@@ -435,22 +442,18 @@ public class Seasonalambiance {
         }
 
         private static void addQuad(BufferBuilder b, Matrix4f m, float min, float minY, float max, float maxY) {
-            // Bottom-left
             Vector4f v1 = new Vector4f(min, minY, 0, 1);
             v1.mul(m);
             b.addVertex(v1.x(), v1.y(), v1.z()).setUv(0, 0);
 
-            // Top-left
             Vector4f v2 = new Vector4f(min, maxY, 0, 1);
             v2.mul(m);
             b.addVertex(v2.x(), v2.y(), v2.z()).setUv(0, 1);
 
-            // Top-right
             Vector4f v3 = new Vector4f(max, maxY, 0, 1);
             v3.mul(m);
             b.addVertex(v3.x(), v3.y(), v3.z()).setUv(1, 1);
 
-            // Bottom-right
             Vector4f v4 = new Vector4f(max, minY, 0, 1);
             v4.mul(m);
             b.addVertex(v4.x(), v4.y(), v4.z()).setUv(1, 0);

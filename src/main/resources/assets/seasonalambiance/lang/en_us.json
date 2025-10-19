@@ -5,8 +5,15 @@
 
   "seasonalambiance.config.title": "Seasonal Ambiance Configuration",
 
+  "seasonalambiance.configuration.title": "Seasonal Ambiance Configuration",
+  "seasonalambiance.configuration.section.seasonalambiance.client.toml.title": "Seasonal Ambiance",
+  "seasonalambiance.configuration.section.seasonalambiance.client.toml": "General Settings",
+
   "seasonalambiance.configuration.enabled": "Enable Particles",
   "seasonalambiance.configuration.enabled.tooltip": "Enable or disable all falling particles",
+
+  "seasonalambiance.configuration.pauseWhenUnfocused": "Pause When Unfocused",
+  "seasonalambiance.configuration.pauseWhenUnfocused.tooltip": "Pause particle rendering when Minecraft window is not focused (saves performance)",
 
   "seasonalambiance.configuration.spawnRateMultiplier": "Spawn Rate Multiplier",
   "seasonalambiance.configuration.spawnRateMultiplier.tooltip": "Multiplier for particle spawn rate (0.1 = 10%, 1.0 = 100%, 2.0 = 200%)",
@@ -42,5 +49,7 @@
   "seasonalambiance.configuration.forceSeasonEnabled.tooltip": "Force a specific season instead of auto-detecting",
 
   "seasonalambiance.configuration.forcedSeason": "Forced Season",
-  "seasonalambiance.configuration.forcedSeason.tooltip": "Which season to force (select from dropdown)"
+  "seasonalambiance.configuration.forcedSeason.tooltip": "Which season to force",
+
+  "seasonalambiance.button.clear_particles": "Clear All Particles"
 }
