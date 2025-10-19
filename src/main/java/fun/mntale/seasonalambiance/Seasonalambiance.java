@@ -49,22 +49,9 @@ public class Seasonalambiance {
     private static final ParticleBatchRenderer batchRenderer =
             new ParticleBatchRenderer();
 
-    public static void clearAllParticles() {
-        fallingObjects.clear();
-        System.out.println("[Seasonal Ambiance] All particles cleared!");
-    }
-
     public Seasonalambiance(IEventBus modEventBus, ModContainer modContainer) {
         // Register config
         modContainer.registerConfig(ModConfig.Type.CLIENT, Config.SPEC);
-
-        // Register config screen factory with custom clear button
-        modContainer.registerExtensionPoint(
-                IConfigScreenFactory.class,
-                (minecraft, parent) ->
-                        new SeasonalAmbianceConfigScreen(modContainer, parent)
-        );
-
         modEventBus.addListener(this::onClientSetup);
     }
 

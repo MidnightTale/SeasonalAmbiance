@@ -49,7 +49,5 @@
   "seasonalambiance.configuration.forceSeasonEnabled.tooltip": "Force a specific season instead of auto-detecting",
 
   "seasonalambiance.configuration.forcedSeason": "Forced Season",
-  "seasonalambiance.configuration.forcedSeason.tooltip": "Which season to force",
-
-  "seasonalambiance.button.clear_particles": "Clear All Particles"
+  "seasonalambiance.configuration.forcedSeason.tooltip": "Which season to force"
 }
